@@ -6,10 +6,10 @@
 **STOP READING GARBAGE.**
 
 [![Status](https://img.shields.io/website-up-down-green-red/http/sgnl.metinkorkmaz.quest.svg)](http://sgnl.metinkorkmaz.quest)
-[![Version](https://img.shields.io/github/v/tag/metin-korkmaz/sgnl-backend)](https://github.com/metin-korkmaz/sgnl-backend/tags)
+[![Version](https://img.shields.io/github/v/tag/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/tags)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl-backend)](https://github.com/metin-korkmaz/sgnl-backend/stargazers)
-[![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl-backend)](https://github.com/metin-korkmaz/sgnl-backend/commits/main)
+[![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/commits/main)
 
 *Signal extraction for information filtering.*
 
@@ -116,8 +116,8 @@ We reject smooth scrolling, excessive animations, and "delight". Tolerance for f
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/metin-korkmaz/sgnl-backend.git
-cd sgnl-backend
+git clone https://github.com/metin-korkmaz/sgnl.git
+cd sgnl
 
 # 2. Configure environment
 cp .env.example .env
@@ -288,7 +288,7 @@ pytest tests/
 ### Project Structure
 
 ```
-sgnl-backend/
+sgnl/
 ├── app/
 │   ├── main.py              # FastAPI application
 │   ├── extractor.py         # Content extraction engine

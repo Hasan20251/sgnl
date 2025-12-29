@@ -5,9 +5,11 @@
 
 **ÇÖP OKUMAYI DURDURUN.**
 
-[![Status](https://img.shields.io/badge/durum-operasyonel-brightgreen)]()
-[![Version](https://img.shields.io/badge/version-2.0.0-blue)]()
-[![License](https://img.shields.io/badge/license-Apache%202.0-orange)]()
+[![Status](https://img.shields.io/website-up-down-green-red/http/sgnl.metinkorkmaz.quest.svg)](http://sgnl.metinkorkmaz.quest)
+[![Version](https://img.shields.io/github/v/tag/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/tags)
+[![License](https://img.shields.io/badge/license-Apache%202.0-orange)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/stargazers)
+[![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/commits/main)
 
 *Bilgi filtreleme aracı.*
 
@@ -114,8 +116,8 @@ Pürüzsüz kaydırmayı, aşırı animasyonları ve "memnuniyeti" reddediyoruz.
 
 ```bash
 # 1. Depoyu klonlayın
-git clone https://github.com/metin-korkmaz/sgnl-backend.git
-cd sgnl-backend
+git clone https://github.com/metin-korkmaz/sgnl.git
+cd sgnl
 
 # 2. Ortamı yapılandırın
 cp .env.example .env
@@ -286,7 +288,7 @@ pytest tests/
 ### Proje Yapısı
 
 ```
-sgnl-backend/
+sgnl/
 ├── app/
 │   ├── main.py              # FastAPI uygulaması
 │   ├── extractor.py         # İçerik çıkarma motoru

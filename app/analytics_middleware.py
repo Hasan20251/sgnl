@@ -12,13 +12,27 @@ from analytics_models import Base, VisitorLog
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./analytics.db")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+# Lazy load database engine to avoid circular import issues
+_engine = None
+_SessionLocal = None
+
+
+def get_engine():
+    global _engine, _SessionLocal
+    if _engine is None:
+        DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./analytics.db")
+        _engine = create_engine(DATABASE_URL)
+        _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=_engine)
+    return _engine
+
+
+def get_session_local():
+    get_engine()
+    return _SessionLocal
 
 
 def get_db():
-    db = SessionLocal()
+    db = get_session_local()()
     try:
         yield db
     finally:
@@ -26,7 +40,7 @@ def get_db():
 
 
 def init_db():
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=get_engine())
     logger.info("[ANALYTICS] Database initialized")
 
 
@@ -55,7 +69,7 @@ def parse_device_type(user_agent_str: str) -> str:
 
 class AnalyticsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        db: Session = SessionLocal()
+        db: Session = get_session_local()()
         
         try:
             ip = get_client_ip(request)
