@@ -1,0 +1,292 @@
+"""
+SGNL Content Extractor
+Uses Trafilatura for high-quality content extraction from web pages.
+Includes CPIDR-based density scoring via ideadensity.
+"""
+
+import trafilatura
+from trafilatura.settings import use_config
+import httpx
+from typing import Optional, Dict, Any
+import logging
+import re
+from urllib.parse import urlparse
+
+# ideadensity for content density scoring (CPIDR metric)
+try:
+    from ideadensity import cpidr
+    IDEADENSITY_AVAILABLE = True
+except ImportError:
+    IDEADENSITY_AVAILABLE = False
+    cpidr = None
+
+logger = logging.getLogger(__name__)
+
+# Configure Trafilatura for better extraction
+TRAFILATURA_CONFIG = use_config()
+TRAFILATURA_CONFIG.set("DEFAULT", "EXTRACTION_TIMEOUT", "30")
+
+
+def calculate_density(text: str) -> float:
+    """
+    Calculate content density using CPIDR (Content Propositional Idea Density Ratio).
+    
+    Args:
+        text: The text content to analyze
+        
+    Returns:
+        Density score from 0.0 to 1.0 where:
+        - < 0.45 = Low density ("slop", thin content)
+        - 0.45-0.65 = Medium density (average content)
+        - > 0.65 = High density (information-rich content)
+    """
+    if not text or len(text.strip()) < 50:
+        return 0.0
+    
+    if not IDEADENSITY_AVAILABLE:
+        logger.warning("[DENSITY] ideadensity library not available, returning default 0.5")
+        return 0.5
+    
+    try:
+        # CPIDR returns a float representing propositional density
+        density = cpidr(text)
+        # Normalize to 0.0-1.0 range (CPIDR typically ranges 0-1 but can vary)
+        normalized = max(0.0, min(1.0, float(density)))
+        logger.debug(f"[DENSITY] Raw={density}, Normalized={normalized}")
+        return normalized
+    except Exception as e:
+        logger.warning(f"[DENSITY] Calculation failed: {e}, returning default 0.5")
+        return 0.5
+
+
+class ContentExtractor:
+    """Extracts clean content from web pages using Trafilatura."""
+
+    # High-signal domains get a reputation boost
+    HIGH_TRUST_DOMAINS = {
+        "arxiv.org": 1.15,
+        "github.com": 1.10,
+        "openai.com": 1.12,
+        "deepmind.com": 1.12,
+        "research.google": 1.12,
+        "anthropic.com": 1.10,
+        "huggingface.co": 1.08,
+        "pytorch.org": 1.08,
+        "tensorflow.org": 1.08,
+        "nature.com": 1.15,
+        "science.org": 1.15,
+        "acm.org": 1.10,
+        "ieee.org": 1.10,
+        "distill.pub": 1.15,
+        "lilianweng.github.io": 1.12,
+        "colah.github.io": 1.12,
+        "karpathy.github.io": 1.12,
+        "martin.kleppmann.com": 1.10,
+        "jvns.ca": 1.08,
+        "rachelbythebay.com": 1.08,
+        "danluu.com": 1.10,
+        "brandur.org": 1.08,
+    }
+
+    # Patterns that indicate low-quality content
+    SPAM_PATTERNS = [
+        r"subscribe\s+to\s+our\s+newsletter",
+        r"sign\s+up\s+for\s+free",
+        r"limited\s+time\s+offer",
+        r"click\s+here\s+to\s+buy",
+        r"affiliate\s+link",
+        r"sponsored\s+content",
+        r"you\s+won't\s+believe",
+        r"shocking",
+        r"this\s+one\s+trick",
+    ]
+
+    async def extract_from_url(self, url: str, force_depth: bool = False) -> Dict[str, Any]:
+        """
+        Extract content from a URL and return structured data.
+        
+        Args:
+            url: The URL to extract content from
+            force_depth: If True, attempts deeper extraction (follows links, etc.)
+        
+        Returns:
+            Dict with extracted content and metadata
+        """
+        logger.info(f"[EXTRACTOR] Starting extraction for: {url}")
+
+        try:
+            # Fetch the page
+            html = await self._fetch_page(url)
+            if not html:
+                return self._error_response(url, "Failed to fetch page")
+
+            # Extract content using Trafilatura
+            extracted = trafilatura.extract(
+                html,
+                include_comments=False,
+                include_tables=True,
+                include_links=False,
+                output_format="txt",
+                config=TRAFILATURA_CONFIG,
+            )
+
+            if not extracted:
+                return self._error_response(url, "No content extracted")
+
+            # Get metadata
+            metadata = trafilatura.extract_metadata(html)
+            title = metadata.title if metadata else self._extract_title_fallback(html)
+            
+            # Calculate signal score
+            signal_score = self._calculate_signal_score(
+                content=extracted,
+                url=url,
+                title=title or ""
+            )
+            
+            # Calculate density score (CPIDR)
+            density_score = calculate_density(extracted)
+            logger.info(f"[EXTRACTOR] Density score: {density_score:.3f}")
+
+            result = {
+                "url": url,
+                "title": title or "Untitled",
+                "content": extracted,
+                "source": self._extract_domain(url),
+                "length": len(extracted),
+                "signal_score": round(signal_score, 2),
+                "density_score": round(density_score, 3),
+            }
+
+            logger.info(f"[EXTRACTOR] Success: {len(extracted)} chars, signal={signal_score:.2f}, density={density_score:.3f}")
+            return result
+
+        except Exception as e:
+            logger.error(f"[EXTRACTOR] Error: {str(e)}")
+            return self._error_response(url, str(e))
+
+    async def _fetch_page(self, url: str) -> Optional[str]:
+        """Fetch HTML content from a URL."""
+        try:
+            async with httpx.AsyncClient(
+                timeout=30.0,
+                follow_redirects=True,
+                headers={
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                    "Accept-Language": "en-US,en;q=0.5",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Connection": "keep-alive",
+                    "Upgrade-Insecure-Requests": "1"
+                }
+            ) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+                return response.text
+        except Exception as e:
+            logger.error(f"[FETCH] Failed to fetch {url}: {e}")
+            return None
+
+    def _calculate_signal_score(self, content: str, url: str, title: str) -> float:
+        """
+        Calculate a signal score based on multiple factors.
+        
+        Score ranges from 0.0 to 1.0 where:
+        - 0.0-0.3 = Low signal (spam, thin content)
+        - 0.3-0.6 = Medium signal (average content)
+        - 0.6-0.8 = Good signal (quality content)
+        - 0.8-1.0 = High signal (exceptional content)
+        """
+        score = 0.5  # Start at neutral
+
+        # Factor 1: Content Length (longer = better, up to a point)
+        word_count = len(content.split())
+        if word_count < 200:
+            score -= 0.15  # Too short
+        elif word_count < 500:
+            score -= 0.05
+        elif word_count < 1000:
+            score += 0.05
+        elif word_count < 3000:
+            score += 0.10
+        elif word_count < 5000:
+            score += 0.12
+        else:
+            score += 0.15  # Long-form content
+
+        # Factor 2: Domain Reputation
+        domain = self._extract_domain(url)
+        for trusted_domain, boost in self.HIGH_TRUST_DOMAINS.items():
+            if trusted_domain in domain:
+                score *= boost
+                break
+
+        # Factor 3: Code Block Density (technical content indicator)
+        code_indicators = len(re.findall(r'```|`[^`]+`|def |class |function |const |import ', content))
+        if code_indicators > 0:
+            code_boost = min(0.15, code_indicators * 0.02)
+            score += code_boost
+
+        # Factor 4: Reference Density (citations, links to papers)
+        ref_indicators = len(re.findall(r'\[\d+\]|arxiv\.|doi\.org|et al\.|figure \d|table \d', content, re.I))
+        if ref_indicators > 0:
+            ref_boost = min(0.10, ref_indicators * 0.015)
+            score += ref_boost
+
+        # Factor 5: Spam Pattern Detection (negative)
+        spam_count = sum(
+            1 for pattern in self.SPAM_PATTERNS
+            if re.search(pattern, content, re.I)
+        )
+        if spam_count > 0:
+            score -= spam_count * 0.10
+
+        # Factor 6: Information Density (unique word ratio)
+        words = content.lower().split()
+        if words:
+            unique_ratio = len(set(words)) / len(words)
+            if unique_ratio > 0.5:
+                score += 0.05  # High vocabulary diversity
+            elif unique_ratio < 0.3:
+                score -= 0.05  # Repetitive content
+
+        # Factor 7: Structural Indicators (headers, lists)
+        structural_patterns = len(re.findall(r'\n#{1,3}\s|\n\*\s|\n\d+\.\s|\n-\s', content))
+        if structural_patterns > 3:
+            score += 0.05
+
+        # Clamp to valid range
+        return max(0.0, min(1.0, score))
+
+    def _extract_domain(self, url: str) -> str:
+        """Extract the domain from a URL."""
+        try:
+            parsed = urlparse(url)
+            domain = parsed.netloc.replace("www.", "")
+            return domain
+        except:
+            return "unknown"
+
+    def _extract_title_fallback(self, html: str) -> Optional[str]:
+        """Fallback title extraction from HTML."""
+        match = re.search(r'<title[^>]*>([^<]+)</title>', html, re.I)
+        if match:
+            return match.group(1).strip()
+        return None
+
+    def _error_response(self, url: str, error: str) -> Dict[str, Any]:
+        """Return an error response structure."""
+        return {
+            "url": url,
+            "title": "Extraction Failed",
+            "content": f"Error: {error}",
+            "source": self._extract_domain(url),
+            "length": 0,
+            "signal_score": 0.0,
+            "density_score": 0.0,
+            "error": error,
+        }
+
+
+# Singleton instance
+extractor = ContentExtractor()

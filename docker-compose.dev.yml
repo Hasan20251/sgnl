@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  sgnl-api:
+    build: .
+    container_name: sgnl-api-dev
+    restart: "no"
+    ports:
+      - "${PORT:-8000}:${PORT:-8000}"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - N8N_WEBHOOK_URL=${N8N_WEBHOOK_URL}
+      - N8N_FAST_SEARCH_URL=${N8N_FAST_SEARCH_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000}
+      - RATE_LIMIT=${RATE_LIMIT:-100}
+      - RATE_WINDOW_SECONDS=${RATE_WINDOW_SECONDS:-60}
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+      - LOG_LEVEL=DEBUG
+      - DENSITY_THRESHOLD=${DENSITY_THRESHOLD:-0.45}
+      - LLM_MAX_CHARS=${LLM_MAX_CHARS:-12000}
+    networks:
+      - sgnl-net
+
+networks:
+  sgnl-net:
+    driver: bridge
