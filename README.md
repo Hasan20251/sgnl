@@ -5,11 +5,18 @@
 
 **STOP READING GARBAGE.**
 
-[![Status](https://img.shields.io/website-up-down-green-red/http/sgnl.metinkorkmaz.quest.svg)](http://sgnl.metinkorkmaz.quest)
+[![Status](https://img.shields.io/website-up-down-green-red/https://sgnl.metinkorkmaz.quest.svg)](https://sgnl.metinkorkmaz.quest)
 [![Version](https://img.shields.io/github/v/tag/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/tags)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/stargazers)
+[![Forks](https://img.shields.io/github/forks/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/network)
+[![Issues](https://img.shields.io/github/issues/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/issues)
+[![Open issues](https://img.shields.io/github/issues-raw/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/issues)
+[![PRs](https://img.shields.io/github/issues-pr/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/pulls)
 [![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/commits/main)
+[![Python](https://img.shields.io/badge/python-3.11-blue)](https://www.python.org/downloads/release/python-311/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-green)](https://fastapi.tiangolo.com)
+[![Docker](https://img.shields.io/badge/docker-available-blue)](https://www.docker.com/)
 
 *Signal extraction for information filtering.*
 
