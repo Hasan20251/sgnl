@@ -37,17 +37,19 @@ SGNL operates on a **Dual-Engine Architecture** designed to balance velocity wit
 | Engine | Latency | Action | UX Pattern |
 |--------|----------|--------|------------|
 | **Fast Lane** | <1500ms | Retrieves raw Tavily search vectors | Optimistic UI — instant results table |
-| **Deep Scan** | Async (Background) | GPT-4o analyzes high-value artifacts | Intelligence Report injected on verified signal |
+ | **Deep Scan** | Async (Background) | GPT-OSS-120B analyzes high-value artifacts (via Deepinfra/n8n) | Intelligence Report injected on verified signal |
 
 ### Architecture Flow
 
 ```
 User Request → Fast Lane (Tavily) → Instant Results
                     ↓
-              Deep Scan (GPT-4o) → Signal Analysis → Intelligence Report
+               Deep Scan (GPT-OSS-120B via Deepinfra/n8n) → Signal Analysis → Intelligence Report
 ```
 
 **Strategy:** The "Curator Prompt". We strictly forbid AI from lecturing. It scans for density and facts only.
+
+**LLM Architecture:** Deep scan analysis is handled by n8n workflows using Deepinfra API with GPT-OSS-120B model for optimal performance and cost efficiency.
 
 ---
 
@@ -76,8 +78,9 @@ We reject smooth scrolling, excessive animations, and "delight". Tolerance for f
 ### Prerequisites
 
 - [x] Docker & Docker Compose
-- [x] Valid `OPENAI_API_KEY`
-- [x] Valid `TAVILY_API_KEY`
+- [x] Valid `TAVILY_API_KEY` (for web search)
+- [x] n8n instance with Deepinfra API configured (for LLM analysis)
+- [ ] `OPENAI_API_KEY` (optional, for direct LLM calls)
 
 ### Installation
 
@@ -215,7 +218,7 @@ Content-Type: application/json
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `OPENAI_API_KEY` | ✅ Yes | - | OpenAI API key for GPT-4o |
+ | `OPENAI_API_KEY` | ✅ Yes | - | OpenAI API key (optional, for direct LLM calls) |
 | `TAVILY_API_KEY` | ✅ Yes | - | Tavily API key for web search |
 | `N8N_WEBHOOK_URL` | ✅ Yes | - | n8n deep scan webhook URL |
 | `N8N_FAST_SEARCH_URL` | ✅ Yes | - | n8n fast search webhook URL |
@@ -319,7 +322,7 @@ docker exec sgnl-api env | grep -E "API_KEY|N8N"
 | **Max Content Size** | 12,000 chars | Configurable via `LLM_MAX_CHARS` |
 | **Density Threshold** | 0.45 | Configurable via `DENSITY_THRESHOLD` |
 | **Fast Search Latency** | <1500ms | Raw Tavily results |
-| **Deep Scan Latency** | 2-5s | With GPT-4o analysis |
+ | **Deep Scan Latency** | 2-5s | With GPT-OSS-120B analysis (via Deepinfra/n8n) |
 
 ### Enforcement
 
