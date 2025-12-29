@@ -25,6 +25,23 @@
 
 ---
 
+## 📖 Bu Nedir Aslında? (Özet)
+
+**SGNL, yüksek kaliteli içeriği gürültüden ayıran akıllı bir filtre.**
+
+Bir araştırma asistanı gibi düşünün; makaleleri, araştırmaları ve web içeriğini okur ve size şunları söyler:
+- Okunmaya değer olan şeyler (sinyal)
+- Sadece reklam/gürültü olan şeyler (gürültü)
+
+**3 saniyede nasıl çalışır:**
+1. Bir konu arayın
+2. SGNL içerik bulur ve kalite/yoğunluk olarak puanlar
+3. Sadece değerli şeyleri, yapay zeka tarafından analiz edilmiş şekilde alırsınız
+
+**İdeal kullanım alanı:** Araştırmacılar, geliştiriciler, öğrenciler veya bilgi selinden boğulan herkes.
+
+---
+
 ## 🎯 Yaklaşım: Gürültü Filtreleme
 
 İnternette çok içerik var. Bazıları faydalı. Bazıları değil.
@@ -97,8 +114,8 @@ Pürüzsüz kaydırmayı, aşırı animasyonları ve "memnuniyeti" reddediyoruz.
 
 ```bash
 # 1. Depoyu klonlayın
-git clone https://github.com/sgnl/engine.git
-cd engine
+git clone https://github.com/metin-korkmaz/sgnl-backend.git
+cd sgnl-backend
 
 # 2. Ortamı yapılandırın
 cp .env.example .env
@@ -127,7 +144,7 @@ docker compose up -d --build
 | ✅ Sabitlenmiş Kimlik Bilgisi Yok | Aktif | Tüm sırlar ortam değişkenlerinde |
 | ✅ Kısıtlı CORS | Aktif | Sadece alan adına özel erişim |
 | ✅ SSL/TLS Şifreleme | Aktif | Nginx Proxy Manager aracılığıyla |
-| ✅ Hız Sınırlama | Aktif | 20 istek/dakika/IP (yapılandırılabilir) |
+| ✅ Hız Sınırlama | Aktif | 3 istek/dakika/IP (yapılandırılabilir) |
 | ✅ Ağ İzolasyonu | Aktif | Docker ağ güvenliği |
 
 ### Alan Adı Yapılandırması
@@ -329,7 +346,7 @@ docker exec sgnl-api env | grep -E "API_KEY|N8N"
 
 | Metrik | Değer | Notlar |
 |--------|--------|--------|
-| **Hız Sınırı** | 20 istek/dakika/IP | `RATE_LIMIT` üzerinden yapılandırılabilir |
+| **Hız Sınırı** | 3 istek/dakika/IP (varsayılan) | `RATE_LIMIT` üzerinden yapılandırılabilir |
 | **Maksimum İçerik Boyutu** | 12,000 karakter | `LLM_MAX_CHARS` üzerinden yapılandırılabilir |
 | **Yoğunluk Eşiği** | 0.45 | `DENSITY_THRESHOLD` üzerinden yapılandırılabilir |
 | **Hızlı Arama Gecikmesi** | <1500ms | Ham Tavily sonuçları |
@@ -368,12 +385,18 @@ Bu proje Apache License 2.0 altında lisanslanmıştır.
 
 ---
 
+## �️ Bakım
+
+**Metin Samet Korkmaz**
+
+[![GitHub](https://img.shields.io/badge/GitHub-metin--korkmaz-blue)](https://github.com/metin-korkmaz)
+
+---
+
 ## 🏷️ Durum
 
 ```
-Bakım: Proje SGNL Mimarcıları
-Durum:        OPERASYONEL
-Sürüm:       2.0.0
+Durum:        OPERASYONEL (yukarıdaki rozeti görün)
 Son Güncelleme: 29 Aralık 2025
 ```
 
