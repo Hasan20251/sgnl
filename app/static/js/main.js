@@ -46,7 +46,9 @@ const state = {
     // Rotator state
     currentRotatorIndex: 0,
     rotatorTimer: null,
-    isScrambling: false
+    isScrambling: false,
+    // Resize handler state
+    lastRenderedData: null
 };
 
 /* ========== DOM REFERENCES ========== */
@@ -722,6 +724,9 @@ function retrySearch() {
 function renderResults(data, aiAnalysis = null) {
     DOM.resultsBody.innerHTML = '';
 
+    // Store rendered data for resize handling
+    state.lastRenderedData = { results: data, aiAnalysis };
+
     // Clear & Hide AI Analysis by default
     const aiSection = document.getElementById('ai-analysis');
     if (aiSection) {
@@ -838,72 +843,142 @@ function renderResults(data, aiAnalysis = null) {
     DOM.resultsHeader.style.display = 'flex';
     DOM.resultsCount.textContent = `${data.length} SOURCES FOUND`;
 
-    // Create table
-    const table = createElement('table', { className: 'results-table' });
-    const thead = createElement('thead');
-    const headerRow = createElement('tr');
+    // Check if mobile using matchMedia (matches CSS @media max-width: 768px)
+    const isMobile = window.matchMedia('(max-width: 768px)').matches;
 
-    ['ID', 'SOURCE', 'SIGNAL %', 'TITLE', 'TIMESTAMP'].forEach(text => {
-        headerRow.appendChild(createElement('th', { textContent: text }));
-    });
+    if (isMobile) {
+        // Render card layout for mobile
+        const cardsContainer = createElement('div', { className: 'results-mobile-cards' });
 
-    thead.appendChild(headerRow);
-    table.appendChild(thead);
+        data.forEach((item, index) => {
+            const score = item.score ?? item.signal_score ?? 0.5;
+            const normalizedScore = score > 1 ? score / 10 : score;
+            const scorePercent = (normalizedScore * 100).toFixed(0);
+            const domain = extractDomain(item.url);
 
-    const tbody = createElement('tbody');
+            const card = createElement('div', {
+                className: 'result-card',
+                'data-id': String(index + 1).padStart(2, '0')
+            });
 
-    data.forEach((item, index) => {
-        const row = createElement('tr');
-        const score = item.score ?? item.signal_score ?? 0.5;
-        const normalizedScore = score > 1 ? score / 10 : score;
-        const scorePercent = (normalizedScore * 100).toFixed(0);
+            // Source
+            card.appendChild(createElement('div', {
+                className: 'result-card-source',
+                textContent: domain
+            }));
 
-        row.appendChild(createElement('td', { textContent: String(index + 1).padStart(2, '0') }));
-        row.appendChild(createElement('td', { textContent: extractDomain(item.url) }));
+            // Title with link
+            const titleLink = createElement('a', {
+                href: item.url,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                textContent: escapeHTML(item.title || 'Untitled')
+            });
 
-        const signalCell = createElement('td');
-        const signalWrap = createElement('div', { style: 'display: flex; align-items: center;' });
-        const signalBar = createElement('div', { className: 'signal-bar' });
-        const signalFill = createElement('div', {
-            className: 'signal-bar-fill',
-            style: `width: ${scorePercent}%`
+            card.appendChild(createElement('div', {
+                className: 'result-card-title'
+            }, [titleLink]));
+
+            // Signal score and timestamp
+            const signalDiv = createElement('div', {
+                className: 'result-card-signal'
+            });
+
+            signalDiv.appendChild(createElement('span', {
+                className: 'result-card-signal-value',
+                textContent: `SIGNAL: ${scorePercent}%`
+            }));
+
+            const timestamp = item.timestamp || new Date().toISOString().split('T')[0];
+            signalDiv.appendChild(createElement('span', {
+                className: 'result-card-timestamp',
+                textContent: timestamp
+            }));
+
+            card.appendChild(signalDiv);
+            cardsContainer.appendChild(card);
         });
-        signalBar.appendChild(signalFill);
-        signalWrap.appendChild(signalBar);
-        signalWrap.appendChild(createElement('span', {
-            className: 'signal-value',
-            textContent: `${scorePercent}%`
-        }));
-        signalCell.appendChild(signalWrap);
-        row.appendChild(signalCell);
 
-        const titleCell = createElement('td');
-        titleCell.appendChild(createElement('a', {
-            href: item.url,
-            target: '_blank',
-            rel: 'noopener noreferrer',
-            textContent: escapeHTML(item.title || 'Untitled')
-        }));
-        row.appendChild(titleCell);
+        DOM.resultsBody.appendChild(cardsContainer);
 
-        const timestamp = item.timestamp || new Date().toISOString().split('T')[0];
-        row.appendChild(createElement('td', { textContent: timestamp }));
+        // Animate cards
+        if (typeof gsap !== 'undefined') {
+            gsap.from('.result-card', {
+                y: 20,
+                opacity: 0,
+                duration: 0.3,
+                stagger: 0.08,
+                ease: 'power2.out'
+            });
+        }
+    } else {
+        // Render table for desktop (existing code)
+        const table = createElement('table', { className: 'results-table' });
+        const thead = createElement('thead');
+        const headerRow = createElement('tr');
 
-        tbody.appendChild(row);
-    });
-
-    table.appendChild(tbody);
-    DOM.resultsBody.appendChild(table);
-
-    // Animate rows
-    if (typeof gsap !== 'undefined') {
-        gsap.from('tbody tr', {
-            y: 20,
-            opacity: 0,
-            duration: 0.3,
-            stagger: 0.06,
-            ease: 'power2.out'
+        ['ID', 'SOURCE', 'SIGNAL %', 'TITLE', 'TIMESTAMP'].forEach(text => {
+            headerRow.appendChild(createElement('th', { textContent: text }));
         });
+
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        const tbody = createElement('tbody');
+
+        data.forEach((item, index) => {
+            const row = createElement('tr');
+            const score = item.score ?? item.signal_score ?? 0.5;
+            const normalizedScore = score > 1 ? score / 10 : score;
+            const scorePercent = (normalizedScore * 100).toFixed(0);
+
+            row.appendChild(createElement('td', { textContent: String(index + 1).padStart(2, '0') }));
+            row.appendChild(createElement('td', { textContent: extractDomain(item.url) }));
+
+            const signalCell = createElement('td');
+            const signalWrap = createElement('div', { style: 'display: flex; align-items: center;' });
+            const signalBar = createElement('div', { className: 'signal-bar' });
+            const signalFill = createElement('div', {
+                className: 'signal-bar-fill',
+                style: `width: ${scorePercent}%`
+            });
+            signalBar.appendChild(signalFill);
+            signalWrap.appendChild(signalBar);
+            signalWrap.appendChild(createElement('span', {
+                className: 'signal-value',
+                textContent: `${scorePercent}%`
+            }));
+            signalCell.appendChild(signalWrap);
+            row.appendChild(signalCell);
+
+            const titleCell = createElement('td');
+            titleCell.appendChild(createElement('a', {
+                href: item.url,
+                target: '_blank',
+                rel: 'noopener noreferrer',
+                textContent: escapeHTML(item.title || 'Untitled')
+            }));
+            row.appendChild(titleCell);
+
+            const timestamp = item.timestamp || new Date().toISOString().split('T')[0];
+            row.appendChild(createElement('td', { textContent: timestamp }));
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        DOM.resultsBody.appendChild(table);
+
+        // Animate rows
+        if (typeof gsap !== 'undefined') {
+            gsap.from('tbody tr', {
+                y: 20,
+                opacity: 0,
+                duration: 0.3,
+                stagger: 0.06,
+                ease: 'power2.out'
+            });
+        }
     }
 
     // Scroll to results after a short delay (ensures DOM is painted)
@@ -965,6 +1040,25 @@ function init() {
     setTimeout(initAnimations, 100);
 
     console.log('[SGNL] Initialization complete');
+
+    // Handle resize to re-render results if needed
+    let resizeTimer;
+    let lastBreakpoint = window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
+
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+            const currentBreakpoint = window.matchMedia('(max-width: 768px)').matches ? 'mobile' : 'desktop';
+            const currentResults = state.lastRenderedData;
+
+            // Only re-render if breakpoint changed AND we have results
+            if (currentBreakpoint !== lastBreakpoint && currentResults?.results?.length > 0) {
+                console.log('[SGNL] Breakpoint changed from', lastBreakpoint, 'to', currentBreakpoint);
+                renderResults(currentResults.results, currentResults.aiAnalysis);
+                lastBreakpoint = currentBreakpoint;
+            }
+        }, 250);
+    });
 }
 
 // Run on DOM ready
