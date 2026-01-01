@@ -60,6 +60,160 @@ core_principles = {
 
 ---
 
+## 📊 How Signal Score is Calculated
+
+SGNL uses a **multi-layered scoring system** that combines heuristics, density analysis, and LLM evaluation to determine content quality.
+
+### Scoring Architecture
+
+```
+┌─────────────────────────────────────────┐
+│  Heuristic Analysis (Fast, <100ms) │
+│  ────────────────────────────────────  │
+│  Code Density (±0 to +20)          │
+│  Data Density (±0 to +15)           │
+│  Slop Detection (-30 to +10)         │
+│  Affiliate Detection (-30)             │
+│  Hype Detection (-20)                 │
+│                                      │
+│  Final Heuristic Score: 0-100          │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│  Content Density Analysis (Fast)      │
+│  ────────────────────────────────────  │
+│  CPIDR Score (0.0-1.0)             │
+│  DEPID Score (0.0-1.0)             │
+│  Readability Score                    │
+│  Combined Density (0.0-1.0)          │
+└─────────────────────────────────────────┘
+                  ↓
+┌─────────────────────────────────────────┐
+│  Domain Reputation                   │
+│  ────────────────────────────────────  │
+│  High-trust domains (+8% to +15%)  │
+│  Neutral domains (0%)                │
+│  Spam domains (-)                    │
+└─────────────────────────────────────────┘
+                  ↓
+         FINAL SIGNAL SCORE (0-100)
+```
+
+### 1️⃣ Heuristic Analysis (Base Layer)
+
+**Starting Score:** 50 (neutral)
+
+| Factor | Impact | How It's Measured |
+|--------|---------|-------------------|
+| **Code Density** | +0 to +20 | Counts `<pre>` and `<code>` blocks. Boosts technical content matching coding queries. |
+| **Data Density** | +0 to +15 | Detects tables (`<table>`) and structured data. Indicates factual content. |
+| **Slop Detection** | -30 to +10 | Analyzes HTML bloat ratio (text vs tags). Excessive markup = lower score. |
+| **Affiliate Detection** | -30 flat | Scans for affiliate links, ref IDs, sponsored content. Instant penalty. |
+| **Hype Detection** | -20 flat | Detects clickbait words (shocking, miracle, secret, unbelievable, etc.). |
+
+**Example:**
+```python
+# Technical article with code blocks
+Base: 50
++ Code density: +20 (matches query, has 5 code blocks)
++ Data density: +10 (has research tables)
+- Slop: -5 (some HTML bloat)
+─────────────────────────────────────────
+Final: 75 (Good quality)
+```
+
+### 2️⃣ Content Density Analysis
+
+Measures **informational density** using specialized libraries:
+
+| Metric | Source | Range | Weight |
+|---------|---------|--------|--------|
+| **CPIDR** | `ideadensity` library | 0.0-1.0 | 50% |
+| **DEPID** | `ideadensity` library | 0.0-1.0 | 30% |
+| **Readability** | `textstat` library | 0.0-1.0 | 20% |
+
+**How CPIDR Works:**
+- Counts unique idea units (nouns, verbs, concepts)
+- Measures lexical density vs. total word count
+- High density = information-rich content
+
+**How DEPID Works:**
+- Uses spaCy NLP model to tag parts of speech
+- Calculates idea density per sentence
+- Higher density = more information per sentence
+
+**Combined Formula:**
+```
+Density Score = (CPIDR × 0.5) + (DEPID × 0.3) + (Readability × 0.2)
+```
+
+**Threshold:** Content with `Density < 0.45` is flagged for skipping LLM analysis (too lightweight).
+
+### 3️⃣ Domain Reputation
+
+| Domain Type | Boost | Examples |
+|-------------|-------|-----------|
+| **Academic** | +15% | arxiv.org, nature.com, science.org |
+| **Open Source** | +12% | github.com, openai.com, anthropic.com |
+| **Research** | +12% | deepmind.com, distill.pub, huggingface.co |
+| **Neutral** | 0% | Unknown domains |
+| **Spam** | - | Known spam/affiliate farms |
+
+**Example:**
+```python
+# Same content on different domains
+Medium.com article → 65 (neutral domain)
+arxiv.org paper → 75 (+15% academic boost)
+```
+
+### 4️⃣ Final Score Calculation
+
+**Step 1: Heuristic Score** (0-100)
+```
+Base: 50
++ Code Density (+0 to +20)
++ Data Density (+0 to +15)
+- Slop (-30 to +10)
+- Affiliates (-30)
+- Hype (-20)
+─────────────────────────────────
+Final: Clamped to [0, 100]
+```
+
+**Step 2: Apply Domain Boost**
+```
+Final Score = Heuristic Score × (1 + DomainBoost)
+# Example: 75 × 1.15 = 86.25 (arxiv.org)
+```
+
+**Step 3: LLM Intelligence Report** (for Deep Scan)
+- GPT-OSS-120B reads full content
+- Provides semantic analysis
+- Extracts key findings
+- Assigns technical depth score (overrides heuristics)
+
+### What Makes "High Signal"?
+
+| Score Range | Rating | Characteristics |
+|-------------|---------|-----------------|
+| **85-100** | ⭐⭐⭐ Exceptional | Peer-reviewed research, code benchmarks, high-density academic papers |
+| **70-84** | ⭐⭐ High | Technical documentation, well-structured tutorials, detailed guides |
+| **50-69** | ⭐ Good | Solid content, some value, mild fluff |
+| **30-49** | ⚠️ Medium | Average quality, excessive intros, listicle format |
+| **0-29** | ❌ Low | Clickbait, affiliate spam, low information density |
+
+### Why This Approach?
+
+| Concern | Solution |
+|----------|-----------|
+| **Speed** | Heuristics work in <100ms, no LLM latency |
+| **Accuracy** | Density analysis captures true informational value |
+| **Context** | Domain reputation adds trust signals |
+| **Depth** | LLM provides semantic understanding for top results |
+| **Transparency** | Every score has a reason, not a black box |
+
+---
+
 ## ⚡ System Overview
 
 SGNL operates on a **Dual-Engine Architecture** designed to balance velocity with depth.
