@@ -4,7 +4,7 @@ services:
   sgnl-api:
     build: .
     container_name: sgnl-api-dev
-    restart: "no"
+    restart: "always"
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
     environment:
@@ -21,9 +21,17 @@ services:
       - LOG_LEVEL=DEBUG
       - DENSITY_THRESHOLD=${DENSITY_THRESHOLD:-0.45}
       - LLM_MAX_CHARS=${LLM_MAX_CHARS:-12000}
+      # nginx-proxy configuration
+      - VIRTUAL_HOST=${VIRTUAL_HOST:-your-domain.com}
+      - VIRTUAL_PORT=${PORT:-8000}
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST:-your-domain.com}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@your-domain.com}
     networks:
       - sgnl-net
+      - nginx-proxy_default
 
 networks:
   sgnl-net:
     driver: bridge
+  nginx-proxy_default:
+    external: true

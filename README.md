@@ -4,8 +4,6 @@
 // SIGNAL EXTRACTION ENGINE
 
 **STOP READING GARBAGE.**
-
-[![Status](https://img.shields.io/website-up-down-green-red/https/sgnl.metinkorkmaz.quest.svg)](https://sgnl.metinkorkmaz.quest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/commits/main)
@@ -154,8 +152,8 @@ docker compose up -d --build
 ### Domain Configuration
 
 ```
-Production: https://sgnl.metinkorkmaz.quest
-n8n:       http://n8n.metinkorkmaz.quest (internal)
+Production: https://your-domain.com
+n8n:       http://n8n.your-domain.com (internal)
 ```
 
 ### Environment Setup
@@ -168,11 +166,11 @@ cp .env.example .env
 nano .env
 
 # Configure n8n URLs (use domains, not IP addresses)
-N8N_WEBHOOK_URL=http://n8n.metinkorkmaz.quest/webhook/sgnl/scan-topic
-N8N_FAST_SEARCH_URL=http://n8n.metinkorkmaz.quest/webhook/fast-search
+N8N_WEBHOOK_URL=http://n8n.your-domain.com/webhook/sgnl/scan-topic
+N8N_FAST_SEARCH_URL=http://n8n.your-domain.com/webhook/fast-search
 
 # Configure CORS origins
-ALLOWED_ORIGINS=https://sgnl.metinkorkmaz.quest
+ALLOWED_ORIGINS=https://your-domain.com
 ```
 
 📖 **Full deployment guide:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)

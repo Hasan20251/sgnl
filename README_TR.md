@@ -4,8 +4,6 @@
 // Sinyal Çıkarma Motoru
 
 **ÇÖP OKUMAYI DURDURUN.**
-
-[![Status](https://img.shields.io/website-up-down-green-red/https/sgnl.metinkorkmaz.quest.svg)](https://sgnl.metinkorkmaz.quest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-orange)](LICENSE)
 [![Stars](https://img.shields.io/github/stars/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/stargazers)
 [![Last commit](https://img.shields.io/github/last-commit/metin-korkmaz/sgnl)](https://github.com/metin-korkmaz/sgnl/commits/main)
@@ -154,8 +152,8 @@ docker compose up -d --build
 ### Alan Adı Yapılandırması
 
 ```
-Üretim: https://sgnl.metinkorkmaz.quest
-n8n:       http://n8n.metinkorkmaz.quest (dahili ağ)
+Üretim: https://your-domain.com
+n8n:       http://n8n.your-domain.com (dahili ağ)
 ```
 
 ### Ortam Kurulumu Örneği
@@ -168,11 +166,11 @@ cp .env.example .env
 nano .env
 
 # n8n URL'lerini yapılandırın (IP adresi yerine alan adı kullanın)
-N8N_WEBHOOK_URL=http://n8n.metinkorkmaz.quest/webhook/sgnl/scan-topic
-N8N_FAST_SEARCH_URL=http://n8n.metinkorkmaz.quest/webhook/fast-search
+N8N_WEBHOOK_URL=http://n8n.your-domain.com/webhook/sgnl/scan-topic
+N8N_FAST_SEARCH_URL=http://n8n.your-domain.com/webhook/fast-search
 
 # CORS kaynaklarını yapılandırın
-ALLOWED_ORIGINS=https://sgnl.metinkorkmaz.quest
+ALLOWED_ORIGINS=https://your-domain.com
 ```
 
 📖 **Tam dağıtım kılavuzu:** [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)

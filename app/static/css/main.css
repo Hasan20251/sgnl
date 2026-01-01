@@ -1786,6 +1786,112 @@ h3,
     .verdict-badge {
         text-align: center;
     }
+
+    /* Compact Intelligence Report for Mobile */
+    .ai-analysis {
+        margin-bottom: 30px;
+        box-shadow: 6px 6px 0 var(--alert-color);
+    }
+
+    .analysis-headline {
+        font-size: 18px;
+        padding: 12px 16px;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .analysis-headline::before {
+        width: 10px;
+        height: 10px;
+    }
+
+    .verdict-badge {
+        font-size: 12px;
+        padding: 10px 20px;
+        letter-spacing: 0.05em;
+    }
+
+    .analysis-timestamp {
+        font-size: 10px;
+        padding: 6px 10px;
+    }
+
+    .analysis-main {
+        padding: 20px 16px;
+    }
+
+    .analysis-best-source {
+        padding: 20px 16px;
+    }
+
+    .analysis-subhead {
+        font-size: 11px;
+        padding: 4px 8px;
+        margin-bottom: 16px;
+        letter-spacing: 0.1em;
+    }
+
+    .analysis-text {
+        font-size: 14px;
+        line-height: 1.5;
+    }
+
+    .analysis-source-meta {
+        font-size: 10px;
+        margin-top: 12px;
+        margin-bottom: 16px;
+    }
+
+    .analysis-subhead--findings {
+        margin-top: 20px;
+    }
+
+    .key-findings-list li {
+        font-size: 12px;
+        padding: 10px 0 10px 20px;
+    }
+
+    /* Compact signal score */
+    .signal-score-display {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+
+    .signal-ring {
+        width: 70px;
+        height: 70px;
+    }
+
+    .signal-score-value {
+        font-size: 24px;
+    }
+
+    .signal-score-label {
+        font-size: 9px;
+        margin-top: 4px;
+    }
+
+    /* Compact best source card */
+    .best-source-card {
+        padding: 16px;
+    }
+
+    .best-source-link {
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+
+    .best-source-reason {
+        font-size: 11px;
+        margin-bottom: 12px;
+    }
+
+    /* Compact CTA button */
+    .best-source-cta {
+        padding: 12px 16px;
+        font-size: 12px;
+        letter-spacing: 0.1em;
+    }
 }
 
 /* ========== ANALYZING INDICATOR ========== */
