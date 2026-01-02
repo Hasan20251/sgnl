@@ -10,6 +10,7 @@ import logging
 import os
 import json
 import time
+import secrets
 from collections import defaultdict
 from dotenv import load_dotenv
 
@@ -41,13 +42,13 @@ except Exception:
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """IP-based rate limiting: N requests per minute for search endpoints."""
 
-    RATE_LIMIT = int(os.getenv('RATE_LIMIT', '3'))
-    WINDOW_SECONDS = int(os.getenv('RATE_WINDOW_SECONDS', '60'))
     PROTECTED_PATHS = ['/fast-search', '/scan-topic', '/deep-scan']
-    
+
     def __init__(self, app):
         super().__init__(app)
-        self.request_counts = defaultdict(list)  # IP -> list of timestamps
+        self.request_counts = defaultdict(list)
+        self.RATE_LIMIT = int(os.getenv('RATE_LIMIT', '3'))
+        self.WINDOW_SECONDS = int(os.getenv('RATE_WINDOW_SECONDS', '60'))
     
     def _clean_old_requests(self, ip: str):
         """Remove timestamps older than the window."""
@@ -157,13 +158,30 @@ async def serve_frontend(request: Request):
     """Serve SGNL Heavy Brutalist landing page."""
     session_id = request.cookies.get("sgnl_session")
     
-    if session_id:
-        try:
-            await create_visitor(request, session_id)
-        except Exception as e:
-            logger.warning(f"[ANALYTICS] Failed to create visitor: {e}")
+    # Create session if it doesn't exist
+    if not session_id:
+        session_id = f"sess_{int(time.time())}_{secrets.token_hex(8)}"
     
-    return templates.TemplateResponse("index.html", {"request": request})
+    response = templates.TemplateResponse("index.html", {"request": request})
+    
+    # Set session cookie
+    response.set_cookie(
+        key="sgnl_session",
+        value=session_id,
+        max_age=30 * 24 * 60 * 60,  # 30 days
+        httponly=True,
+        samesite="lax",
+        secure=True
+    )
+    
+    # Create visitor record
+    try:
+        await create_visitor(request, session_id)
+        logger.info(f"[ANALYTICS] Session created: {session_id}")
+    except Exception as e:
+        logger.warning(f"[ANALYTICS] Failed to create visitor: {e}")
+    
+    return response
 
 
 @app.post("/fast-search")
@@ -279,6 +297,8 @@ async def deep_scan(req: DeepScanRequest):
         content = extraction["content"]
         title = extraction.get("title", "Untitled")
         density_score = extraction.get("density_score", 0.5)
+        depid_density = extraction.get("depid_density")
+        readability_scores = extraction.get("readability_score", {})
         
     except HTTPException:
         raise
@@ -299,6 +319,8 @@ async def deep_scan(req: DeepScanRequest):
             bias_rating=BiasRating.NEUTRAL,
             heuristic_score=None,
             density_score=density_score,
+            depid_density=depid_density,
+            readability_score=readability_scores,
             skipped_llm=True
         )
     
@@ -377,6 +399,8 @@ async def deep_scan(req: DeepScanRequest):
             bias_rating=bias_rating,
             heuristic_score=heuristic_score,
             density_score=density_score,
+            depid_density=depid_density,
+            readability_score=readability_scores,
             skipped_llm=False
         )
         
@@ -406,9 +430,13 @@ async def extract_content(req: ExtractionRequest, x_api_key: Optional[str] = Hea
             url=result["url"],
             title=result["title"],
             content=result["content"],
-            source=result["source"],
-            length=result["length"],
-            signal_score=result["signal_score"],
+            author=result.get("author"),
+            date=result.get("date"),
+            word_count=len(result.get("content", "").split()),
+            extraction_method="trafilatura",
+            density_score=result.get("density_score"),
+            depid_density=result.get("depid_density"),
+            readability_score=result.get("readability_score")
         )
 
     except HTTPException:

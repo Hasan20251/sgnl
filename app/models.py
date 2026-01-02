@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict
 from enum import Enum
 
 
@@ -24,6 +24,8 @@ class DeepScanResponse(BaseModel):
     heuristic_score: Optional[int] = None
     raw_content_preview: Optional[str] = None
     density_score: Optional[float] = None
+    depid_density: Optional[float] = None
+    readability_score: Optional[Dict[str, float]] = None
     skipped_llm: bool = False
 
 
@@ -44,3 +46,6 @@ class ExtractionResponse(BaseModel):
     date: Optional[str] = None
     word_count: int = 0
     extraction_method: str = "trafilatura"
+    density_score: Optional[float] = None
+    depid_density: Optional[float] = None
+    readability_score: Optional[Dict[str, float]] = None

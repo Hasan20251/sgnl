@@ -19,6 +19,11 @@ services:
       - HOST=${HOST:-0.0.0.0}
       - PORT=${PORT:-8000}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # nginx-proxy-manager configuration
+      - VIRTUAL_HOST=${VIRTUAL_HOST:-sgnl.metinkorkmaz.quest}
+      - VIRTUAL_PORT=${PORT:-8000}
+      - LETSENCRYPT_HOST=${LETSENCRYPT_HOST:-sgnl.metinkorkmaz.quest}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@sgnl.metinkorkmaz.quest}
       - DENSITY_THRESHOLD=${DENSITY_THRESHOLD:-0.45}
       - LLM_MAX_CHARS=${LLM_MAX_CHARS:-12000}
       - DATABASE_URL=${DATABASE_URL:-postgresql://sgnl_analytics:123456@host.docker.internal:5432/sgnl}

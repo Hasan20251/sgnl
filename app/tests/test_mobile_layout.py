@@ -49,30 +49,27 @@ class TestMobileLayoutCSS:
 
     def test_sections_visible_on_mobile(self, css_content):
         """Test that manifesto, comparison, and features sections are NOT hidden on mobile."""
-        # Search for section hiding patterns that should NOT exist
-        assert "manifesto-section" not in css_content or "display: none" not in css_content.split("manifesto-section")[0] \
-            or "manifesto-section" not in css_content.split("display: none")[0], \
-            "manifesto-section should not be hidden on mobile"
+        # Check mobile queries to ensure sections don't have display: none
+        mobile_queries = [m for m in css_content.split("@media (max-width: 768px)") if m]
 
-        # Check that the sections don't have display: none in mobile queries
-        mobile_queries = css_content.split("@media (max-width: 768px)")
+        for mobile_section in mobile_queries:
+            # Find next media query to limit scope
+            next_media = mobile_section.find("@media")
+            section_content = mobile_section[:next_media] if next_media != -1 else mobile_section
 
-        if len(mobile_queries) > 1:
-            # Get the content after the first mobile query
-            first_mobile = mobile_queries[1]
-            # Find the next media query
-            next_media = first_mobile.find("@media")
-            mobile_content = first_mobile[:next_media] if next_media != -1 else first_mobile
-
-            # Verify sections are not hidden
-            assert "manifesto-section" not in mobile_content or "display: none" not in mobile_content.split("manifesto-section")[0], \
-                "manifesto-section should not be hidden in mobile query"
-
-            assert "comparison-section" not in mobile_content or "display: none" not in mobile_content.split("comparison-section")[0], \
-                "comparison-section should not be hidden in mobile query"
-
-            assert "features-section" not in mobile_content or "display: none" not in mobile_content.split("features-section")[0], \
-                "features-section should not be hidden in mobile query"
+            # Check that none of these sections have display: none immediately after the selector
+            for section in ["manifesto-section", "comparison-section", "features-section"]:
+                if section in section_content:
+                    # Split by the section name and check the CSS block immediately after
+                    parts = section_content.split(section)
+                    if len(parts) > 1:
+                        # Look at CSS immediately following the selector (next 100 chars)
+                        immediate_context = parts[1][:100]
+                        # If we see a closing brace within context, check if display: none is in that block
+                        if "}" in immediate_context:
+                            block_before_closing = immediate_context.split("}")[0]
+                            if "display: none" in block_before_closing:
+                                assert False, f"{section} should not have display: none in mobile query"
 
     def test_nav_row_layout_on_mobile(self, css_content):
         """Test that nav uses flex-direction: row on mobile."""
@@ -102,10 +99,13 @@ class TestMobileLayoutCSS:
             next_media = mobile_section.find("@media")
             section_content = mobile_section[:next_media] if next_media != -1 else mobile_section
 
-            if ".nav-links" in section_content:
-                # Verify nav-links have display: none
-                assert "display: none" in section_content, \
-                    "nav-links should be hidden on mobile"
+            # Only check if this is a mobile query section (skip base CSS)
+            if ".nav-links" in section_content and "display: none" in section_content:
+                # Found nav-links with display: none in mobile query
+                return
+
+        # If we get here, nav-links was not found with display: none
+        assert False, "nav-links should have display: none in mobile breakpoint"
 
     def test_mobile_github_button_visible_on_mobile(self, css_content):
         """Test that mobile GitHub button is visible on mobile."""

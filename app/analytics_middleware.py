@@ -4,7 +4,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
 from sqlalchemy.exc import SQLAlchemyError
 from datetime import datetime
-import user_agent
 import logging
 import os
 
@@ -55,16 +54,18 @@ def parse_device_type(user_agent_str: str) -> str:
     if not user_agent_str:
         return "unknown"
     
-    ua = user_agent.parse(user_agent_str)
+    ua = user_agent_str.lower()
     
-    if ua.is_mobile:
+    if "mobile" in ua or "android" in ua or "iphone" in ua:
         return "mobile"
-    elif ua.is_tablet:
+    elif "ipad" in ua or "tablet" in ua:
         return "tablet"
-    elif ua.is_pc:
+    elif "windows" in ua or "macintosh" in ua or "linux" in ua:
         return "desktop"
-    else:
+    elif "bot" in ua or "spider" in ua or "crawl" in ua:
         return "bot"
+    else:
+        return "unknown"
 
 
 class AnalyticsMiddleware(BaseHTTPMiddleware):

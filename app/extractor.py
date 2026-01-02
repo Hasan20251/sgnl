@@ -7,18 +7,28 @@ Includes CPIDR-based density scoring via ideadensity.
 import trafilatura
 from trafilatura.settings import use_config
 import httpx
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Tuple
 import logging
 import re
 from urllib.parse import urlparse
+import os
 
-# ideadensity for content density scoring (CPIDR metric)
+# ideadensity for content density scoring (CPIDR and DEPID metrics)
 try:
-    from ideadensity import cpidr
+    from ideadensity import cpidr, depid
     IDEADENSITY_AVAILABLE = True
 except ImportError:
     IDEADENSITY_AVAILABLE = False
     cpidr = None
+    depid = None
+
+# textstat for readability metrics
+try:
+    import textstat
+    TEXTSTAT_AVAILABLE = True
+except ImportError:
+    TEXTSTAT_AVAILABLE = False
+    textstat = None
 
 logger = logging.getLogger(__name__)
 
@@ -30,10 +40,10 @@ TRAFILATURA_CONFIG.set("DEFAULT", "EXTRACTION_TIMEOUT", "30")
 def calculate_density(text: str) -> float:
     """
     Calculate content density using CPIDR (Content Propositional Idea Density Ratio).
-    
+
     Args:
         text: The text content to analyze
-        
+
     Returns:
         Density score from 0.0 to 1.0 where:
         - < 0.45 = Low density ("slop", thin content)
@@ -42,11 +52,11 @@ def calculate_density(text: str) -> float:
     """
     if not text or len(text.strip()) < 50:
         return 0.0
-    
+
     if not IDEADENSITY_AVAILABLE:
         logger.warning("[DENSITY] ideadensity library not available, returning default 0.5")
         return 0.5
-    
+
     try:
         # CPIDR returns a float representing propositional density
         density = cpidr(text)
@@ -57,6 +67,114 @@ def calculate_density(text: str) -> float:
     except Exception as e:
         logger.warning(f"[DENSITY] Calculation failed: {e}, returning default 0.5")
         return 0.5
+
+
+def calculate_depid_density(text: str) -> Optional[float]:
+    """
+    Calculate DEPID (Dependency-based Propositional Idea Density).
+
+    Args:
+        text: The text content to analyze
+
+    Returns:
+        Density score from 0.0 to 1.0 or None if unavailable
+    """
+    if not text or len(text.strip()) < 50:
+        return None
+
+    if not IDEADENSITY_AVAILABLE or depid is None:
+        logger.debug("[DEPID] ideadensity library not available")
+        return None
+
+    try:
+        # DEPID returns: (density, word_count, dependencies)
+        density, word_count, dependencies = depid(text, is_depid_r=True)
+        normalized = max(0.0, min(1.0, float(density)))
+        logger.debug(f"[DEPID] Raw={density}, Normalized={normalized}")
+        return normalized
+    except Exception as e:
+        logger.warning(f"[DEPID] Calculation failed: {e}")
+        return None
+
+
+def calculate_readability_scores(text: str) -> Dict[str, float]:
+    """
+    Calculate readability metrics using textstat.
+
+    Args:
+        text: The text content to analyze
+
+    Returns:
+        Dict with readability scores (defaults to None if unavailable)
+    """
+    if not text or len(text.strip()) < 50:
+        return {}
+
+    if not TEXTSTAT_AVAILABLE or textstat is None:
+        logger.debug("[READABILITY] textstat library not available")
+        return {}
+
+    try:
+        textstat.set_lang("en")
+        scores = {
+            "flesch_reading_ease": textstat.flesch_reading_ease(text),
+            "flesch_kincaid_grade": textstat.flesch_kincaid_grade(text),
+            "gunning_fog": textstat.gunning_fog(text),
+            "automated_readability_index": textstat.automated_readability_index(text),
+            "coleman_liau_index": textstat.coleman_liau_index(text),
+        }
+        logger.debug(f"[READABILITY] Scores: {scores}")
+        return scores
+    except Exception as e:
+        logger.warning(f"[READABILITY] Calculation failed: {e}")
+        return {}
+
+
+def calculate_combined_density(
+    cpidr_density: float,
+    depid_density: Optional[float],
+    readability: Dict[str, float]
+) -> float:
+    """
+    Combine multiple density metrics into a weighted score.
+
+    Args:
+        cpidr_density: CPIDR density score (0.0-1.0)
+        depid_density: DEPID density score (0.0-1.0 or None)
+        readability: Readability scores dict
+
+    Returns:
+        Combined density score (0.0-1.0)
+    """
+    # Get weights from environment or defaults
+    cpidr_weight = float(os.getenv('CPIDR_WEIGHT', '0.5'))
+    depid_weight = float(os.getenv('DEPID_WEIGHT', '0.3'))
+    readability_weight = float(os.getenv('READABILITY_WEIGHT', '0.2'))
+
+    total_weight = cpidr_weight + depid_weight + readability_weight
+
+    # Base: CPIDR
+    combined = cpidr_density * cpidr_weight
+
+    # Add: DEPID (if available)
+    if depid_density is not None:
+        combined += depid_density * depid_weight
+    else:
+        total_weight -= depid_weight
+
+    # Add: Readability (inverse of difficulty)
+    if readability and "flesch_reading_ease" in readability:
+        flesch_ease = readability["flesch_reading_ease"]
+        # Flesch ease: higher = easier (90-100 = very easy, 0-30 = very difficult)
+        # Normalize to 0-1 where 1 = difficult (dense), 0 = easy (sparse)
+        reading_difficulty = max(0, min(1, (90 - flesch_ease) / 90))
+        combined += reading_difficulty * readability_weight
+    else:
+        total_weight -= readability_weight
+
+    if total_weight > 0:
+        return max(0.0, min(1.0, combined / total_weight))
+    return cpidr_density
 
 
 class ContentExtractor:
@@ -143,10 +261,23 @@ class ContentExtractor:
                 url=url,
                 title=title or ""
             )
-            
-            # Calculate density score (CPIDR)
-            density_score = calculate_density(extracted)
-            logger.info(f"[EXTRACTOR] Density score: {density_score:.3f}")
+
+            # Calculate density scores (CPIDR, DEPID, and combined)
+            cpidr_score = calculate_density(extracted)
+            depid_score = calculate_depid_density(extracted)
+            readability_scores = calculate_readability_scores(extracted)
+
+            # Get density threshold for LLM skip decision
+            density_threshold = float(os.getenv('DENSITY_THRESHOLD', '0.45'))
+
+            # Calculate combined density score
+            combined_density = calculate_combined_density(
+                cpidr_density=cpidr_score,
+                depid_density=depid_score,
+                readability=readability_scores
+            )
+
+            logger.info(f"[EXTRACTOR] CPIDR: {cpidr_score:.3f}, DEPID: {depid_score}, Combined: {combined_density:.3f}")
 
             result = {
                 "url": url,
@@ -155,10 +286,12 @@ class ContentExtractor:
                 "source": self._extract_domain(url),
                 "length": len(extracted),
                 "signal_score": round(signal_score, 2),
-                "density_score": round(density_score, 3),
+                "density_score": round(cpidr_score, 3),
+                "depid_density": round(depid_score, 3) if depid_score is not None else None,
+                "readability_score": readability_scores,
             }
 
-            logger.info(f"[EXTRACTOR] Success: {len(extracted)} chars, signal={signal_score:.2f}, density={density_score:.3f}")
+            logger.info(f"[EXTRACTOR] Success: {len(extracted)} chars, signal={signal_score:.2f}, density={cpidr_score:.3f}")
             return result
 
         except Exception as e:

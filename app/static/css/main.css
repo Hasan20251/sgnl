@@ -380,6 +380,13 @@ h3,
     transition: transform 0.15s;
 }
 
+@media (max-width: 640px) {
+    .slop-card {
+        padding: 16px;
+        min-height: 120px;
+    }
+}
+
 .slop-card:hover {
     transform: rotate(-1deg) scale(1.02);
 }
@@ -715,11 +722,11 @@ h3,
 
 .search-btn {
     font-family: var(--font-display);
-    font-size: 18px;
+    font-size: 12px;
     font-weight: 900;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    padding: 0 48px;
+    padding: 0 16px;
     background: var(--alert-color);
     color: var(--ink-color);
     border: none;
@@ -728,6 +735,7 @@ h3,
     transition: all 0.1s;
     white-space: nowrap;
     flex-shrink: 0;
+    max-width: 100px;
     /* Prevents button from being squished */
 }
 
@@ -829,16 +837,27 @@ h3,
     border-bottom: var(--border-thin);
 }
 
-.results-table tbody tr {
-    border-bottom: var(--border-thin);
-    cursor: pointer;
-    transition: background var(--hover-speed), color var(--hover-speed);
-}
+    .results-table tbody tr {
+        border-bottom: var(--border-thin);
+        cursor: pointer;
+        transition: background var(--hover-speed), color var(--hover-speed);
+    }
 
-.results-table tbody tr:hover {
-    background: var(--alert-color);
-    color: var(--ink-color);
-}
+    .results-table tbody tr:hover {
+        background: var(--alert-color);
+        color: var(--ink-color);
+    }
+
+    /* Mobile: Make rows tap-friendly */
+    @media (max-width: 768px) {
+        .results-table tbody tr {
+            padding: 8px 0;
+        }
+
+        .results-table td {
+            padding: 16px 4px;
+        }
+    }
 
 .results-table tbody tr:hover a {
     color: var(--ink-color);
@@ -1101,8 +1120,8 @@ h3,
 
 /* --- SPACING: Reduced padding on mobile --- */
 .manifesto-section {
-    padding: 40px 16px;
-    /* p-4 on mobile */
+    padding: 32px 16px;
+    /* p-4 on mobile, slightly reduced */
 }
 
 @media (min-width: 1024px) {
@@ -1113,8 +1132,8 @@ h3,
 }
 
 .search-section {
-    padding: 40px 16px;
-    /* p-4 on mobile */
+    padding: 32px 16px;
+    /* p-4 on mobile, slightly reduced */
 }
 
 @media (min-width: 1024px) {
@@ -1184,11 +1203,86 @@ h3,
         width: 100%;
         border-left: none;
         border-top: 4px solid var(--ink-color);
-        padding: 16px;
+        padding: 20px;
+        min-height: 56px;
+        /* Better touch target */
     }
 
     .command-box {
         box-shadow: 8px 8px 0 var(--alert-color);
+    }
+}
+
+/* Very small mobile optimization */
+@media (max-width: 400px) {
+    .search-section {
+        padding: 24px 12px;
+    }
+
+    .cmd-prompt {
+        font-size: 16px;
+        padding: 12px 0 12px 12px;
+    }
+
+    .search-input {
+        font-size: 16px;
+        padding: 12px;
+    }
+
+    .search-btn {
+        font-size: 16px;
+        padding: 16px;
+    }
+}
+
+    .cmd-prompt {
+        padding: 16px 0 16px 16px;
+        font-size: 18px;
+        width: auto;
+    }
+
+    .search-input {
+        flex: 1;
+        /* Take remaining space on the line */
+        width: auto;
+        /* Allow flex to control width */
+        font-size: 18px;
+        padding: 16px;
+        min-width: 100px;
+        /* Prevent being squashed too small */
+    }
+
+    .search-btn {
+        width: 100%;
+        border-left: none;
+        border-top: 4px solid var(--ink-color);
+        padding: 20px;
+        min-height: 56px;
+        font-size: 18px;
+        max-width: none;
+        /* Better touch target */
+    }
+
+    .command-box {
+        box-shadow: 8px 8px 0 var(--alert-color);
+    }
+}
+
+/* --- SEARCH INPUT: Desktop (inline layout, balanced sizing) --- */
+@media (min-width: 769px) {
+    .search-btn {
+        padding: 0 16px;
+        font-size: 12px;
+        max-width: 100px;
+    }
+
+    .search-input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .cmd-prompt {
+        padding: 24px 0 24px 24px;
     }
 }
 
@@ -1352,13 +1446,19 @@ h3,
 @media (max-width: 600px) {
     .footer {
         flex-direction: column;
-        gap: 16px;
+        gap: 20px;
         text-align: center;
-        padding: 24px 16px;
+        padding: 32px 16px;
     }
 
     .footer-links {
-        gap: 16px;
+        gap: 24px;
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .footer-links a {
+        padding: 8px 16px;
     }
 }
 
@@ -1769,6 +1869,23 @@ h3,
 }
 
 @media (max-width: 900px) {
+    /* Very small screens - stack header elements */
+    @media (max-width: 480px) {
+        .analysis-header {
+            flex-direction: column;
+            align-items: stretch;
+        }
+
+        .verdict-badge {
+            text-align: center;
+            margin-left: 0;
+            margin-top: 8px;
+        }
+
+        .analysis-headline {
+            font-size: 16px;
+        }
+    }
     .analysis-grid {
         grid-template-columns: 1fr;
     }
@@ -1779,12 +1896,14 @@ h3,
     }
 
     .analysis-header {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: wrap;
     }
 
     .verdict-badge {
-        text-align: center;
+        text-align: right;
+        margin-left: auto;
     }
 
     /* Compact Intelligence Report for Mobile */
@@ -1796,8 +1915,9 @@ h3,
     .analysis-headline {
         font-size: 18px;
         padding: 12px 16px;
-        flex-direction: column;
+        flex-direction: row;
         gap: 8px;
+        flex-shrink: 0;
     }
 
     .analysis-headline::before {
@@ -1806,14 +1926,15 @@ h3,
     }
 
     .verdict-badge {
-        font-size: 12px;
-        padding: 10px 20px;
+        font-size: 10px;
+        padding: 8px 12px;
         letter-spacing: 0.05em;
     }
 
     .analysis-timestamp {
         font-size: 10px;
         padding: 6px 10px;
+        display: none;
     }
 
     .analysis-main {
@@ -1888,9 +2009,11 @@ h3,
 
     /* Compact CTA button */
     .best-source-cta {
-        padding: 12px 16px;
+        padding: 14px 20px;
         font-size: 12px;
         letter-spacing: 0.1em;
+        min-height: 48px;
+        /* Better touch target */
     }
 }
 
