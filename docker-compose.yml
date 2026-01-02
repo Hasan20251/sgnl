@@ -26,7 +26,7 @@ services:
       - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@sgnl.metinkorkmaz.quest}
       - DENSITY_THRESHOLD=${DENSITY_THRESHOLD:-0.45}
       - LLM_MAX_CHARS=${LLM_MAX_CHARS:-12000}
-      - DATABASE_URL=${DATABASE_URL:-postgresql://sgnl_analytics:123456@host.docker.internal:5432/sgnl}
+      - DATABASE_URL=${DATABASE_URL:-sqlite:///./analytics.db}
     networks:
       - nginx-proxy_default
 
