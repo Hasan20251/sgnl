@@ -36,6 +36,44 @@ logger = logging.getLogger(__name__)
 TRAFILATURA_CONFIG = use_config()
 TRAFILATURA_CONFIG.set("DEFAULT", "EXTRACTION_TIMEOUT", "30")
 
+# Shared HTTP client with connection pooling for better performance
+_http_client = None
+
+
+def get_http_client() -> httpx.AsyncClient:
+    """Get or create a shared HTTP client with connection pooling."""
+    global _http_client
+    if _http_client is None:
+        limits = httpx.Limits(
+            max_keepalive_connections=20,
+            max_connections=50,
+            keepalive_expiry=30.0
+        )
+        timeout = httpx.Timeout(30.0, connect=10.0)
+        _http_client = httpx.AsyncClient(
+            limits=limits,
+            timeout=timeout,
+            follow_redirects=True,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+                "Accept-Encoding": "gzip, deflate, br",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1"
+            }
+        )
+    return _http_client
+
+
+async def close_http_client():
+    """Close the shared HTTP client (call on shutdown)."""
+    global _http_client
+    if _http_client is not None:
+        await _http_client.aclose()
+        _http_client = None
+        logger.info("[HTTP] Shared client closed")
+
 
 def calculate_density(text: str) -> float:
     """
@@ -299,23 +337,12 @@ class ContentExtractor:
             return self._error_response(url, str(e))
 
     async def _fetch_page(self, url: str) -> Optional[str]:
-        """Fetch HTML content from a URL."""
+        """Fetch HTML content from a URL using shared connection pool."""
         try:
-            async with httpx.AsyncClient(
-                timeout=30.0,
-                follow_redirects=True,
-                headers={
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-                    "Accept-Language": "en-US,en;q=0.5",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Connection": "keep-alive",
-                    "Upgrade-Insecure-Requests": "1"
-                }
-            ) as client:
-                response = await client.get(url)
-                response.raise_for_status()
-                return response.text
+            client = get_http_client()
+            response = await client.get(url)
+            response.raise_for_status()
+            return response.text
         except Exception as e:
             logger.error(f"[FETCH] Failed to fetch {url}: {e}")
             return None

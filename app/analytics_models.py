@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Float, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Float, Text, Boolean, Index
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import uuid
@@ -8,6 +8,12 @@ Base = declarative_base()
 
 class VisitorLog(Base):
     __tablename__ = "visitor_logs"
+    __table_args__ = (
+        # Composite index for active visitors query
+        Index('idx_visitor_active', 'is_active', 'last_activity'),
+        # Composite index for cleanup queries
+        Index('idx_visitor_created', 'created_at'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), unique=True, index=True, nullable=False)
@@ -26,6 +32,10 @@ class VisitorLog(Base):
 
 class PageView(Base):
     __tablename__ = "page_views"
+    __table_args__ = (
+        # Composite index for session page view queries
+        Index('idx_pageview_session_created', 'session_id', 'created_at'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), index=True, nullable=False)
@@ -37,6 +47,10 @@ class PageView(Base):
 
 class AnalyticsEvent(Base):
     __tablename__ = "analytics_events"
+    __table_args__ = (
+        # Composite index for session event queries
+        Index('idx_event_session_type', 'session_id', 'event_type'),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String(100), index=True, nullable=False)

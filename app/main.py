@@ -1,8 +1,12 @@
 from fastapi import FastAPI, HTTPException, Header, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import FileResponse
+from starlette.staticfiles import StaticFiles as StarletteStaticFiles
+from starlette.types import ASGIApp, Receive, Scope, Send
 from pydantic import BaseModel
 from typing import Optional, List
 import httpx
@@ -13,6 +17,25 @@ import time
 import secrets
 from collections import defaultdict
 from dotenv import load_dotenv
+
+
+class CachedStaticFiles(StarletteStaticFiles):
+    """StaticFiles with cache headers for better performance."""
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send):
+        if scope["type"] == "http":
+            # Add cache headers for static assets
+            async def send_wrapper(message):
+                if message["type"] == "http.response.start":
+                    headers = dict(message.get("headers", []))
+                    # Cache for 1 year for versioned static files
+                    headers[b"cache-control"] = b"public, max-age=31536000, immutable"
+                    message = {"type": "http.response.start", "status": message.get("status"), "headers": list(headers.items())}
+                await send(message)
+
+            await super().__call__(scope, receive, send_wrapper)
+        else:
+            await super().__call__(scope, receive, send)
 
 load_dotenv()
 
@@ -31,12 +54,25 @@ from analytics_middleware import AnalyticsMiddleware, init_db
 from analytics_routes import router as analytics_router
 from analytics_utils import create_visitor, cleanup_old_visitors
 
-# OpenAI client (lazy init)
-try:
-    from openai import OpenAI
-    openai_client = OpenAI()
-except Exception:
-    openai_client = None
+# OpenAI client (lazy initialization)
+_openai_client = None
+OPENAI_AVAILABLE = False
+
+
+def get_openai_client():
+    """Get or create OpenAI client (lazy initialization)."""
+    global _openai_client, OPENAI_AVAILABLE
+    if not OPENAI_AVAILABLE:
+        try:
+            from openai import OpenAI
+            _openai_client = OpenAI()
+            OPENAI_AVAILABLE = True
+            logger.info("[OPENAI] Client initialized")
+        except Exception as e:
+            OPENAI_AVAILABLE = False
+            logger.warning(f"[OPENAI] Failed to initialize: {e}")
+            _openai_client = None
+    return _openai_client if OPENAI_AVAILABLE else None
 
 # ========== RATE LIMITER ==========
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -47,39 +83,63 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
         self.request_counts = defaultdict(list)
-        self.RATE_LIMIT = int(os.getenv('RATE_LIMIT', '3'))
-        self.WINDOW_SECONDS = int(os.getenv('RATE_WINDOW_SECONDS', '60'))
-    
+        self.RATE_LIMIT = get_env('RATE_LIMIT', 3)
+        self.WINDOW_SECONDS = get_env('RATE_WINDOW_SECONDS', 60)
+        # Periodic cleanup to prevent unbounded memory growth
+        self.last_cleanup = time.time()
+        self.CLEANUP_INTERVAL = 300  # Clean up every 5 minutes
+
+    def _cleanup_all(self):
+        """Clean old requests for all IPs periodically."""
+        now = time.time()
+        if now - self.last_cleanup > self.CLEANUP_INTERVAL:
+            # Remove empty entries and old requests
+            ips_to_remove = []
+            for ip, timestamps in self.request_counts.items():
+                self.request_counts[ip] = [
+                    ts for ts in timestamps
+                    if now - ts < self.WINDOW_SECONDS
+                ]
+                if not self.request_counts[ip]:
+                    ips_to_remove.append(ip)
+            for ip in ips_to_remove:
+                del self.request_counts[ip]
+            self.last_cleanup = now
+            logger.info(f"[RATE-LIMIT] Cleanup completed. Tracking {len(self.request_counts)} IPs")
+
     def _clean_old_requests(self, ip: str):
         """Remove timestamps older than the window."""
         now = time.time()
         self.request_counts[ip] = [
-            ts for ts in self.request_counts[ip] 
+            ts for ts in self.request_counts[ip]
             if now - ts < self.WINDOW_SECONDS
         ]
-    
+
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP, handling proxies."""
         forwarded = request.headers.get("X-Forwarded-For")
         if forwarded:
             return forwarded.split(",")[0].strip()
         return request.client.host if request.client else "unknown"
-    
+
     async def dispatch(self, request: Request, call_next):
+        # Periodic cleanup of old entries
+        self._cleanup_all()
+
         # Only rate limit protected paths
         if not any(request.url.path.startswith(p) for p in self.PROTECTED_PATHS):
             return await call_next(request)
-        
+
         ip = self._get_client_ip(request)
         self._clean_old_requests(ip)
-        
+
         if len(self.request_counts[ip]) >= self.RATE_LIMIT:
             # Calculate retry time
             oldest_request = min(self.request_counts[ip])
             retry_after = int(self.WINDOW_SECONDS - (time.time() - oldest_request))
-            
+
             logger.warning(f"[RATE-LIMIT] IP {ip} exceeded limit. Retry after {retry_after}s")
-            
+
             return Response(
                 content=json.dumps({
                     "error": "RATE_LIMIT_EXCEEDED",
@@ -90,10 +150,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 media_type="application/json",
                 headers={"Retry-After": str(retry_after)}
             )
-        
+
         # Record this request
         self.request_counts[ip].append(time.time())
-        
+
         return await call_next(request)
 
 
@@ -101,6 +161,9 @@ app = FastAPI(title="SGNL Extraction Engine", version="2.0.0")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Add GZip compression for all responses
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 # Initialize analytics database
 try:
@@ -130,8 +193,8 @@ app.add_middleware(
 # Get the directory where main.py is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Mount static files (CSS, JS)
-app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+# Mount static files (CSS, JS) with cache headers
+app.mount("/static", CachedStaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 # Setup Jinja2 templates
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
@@ -152,18 +215,34 @@ Rules:
 - technical_depth_score: 0=empty, 50=average, 80+=expert-level
 - bias_rating: Neutral=objective, Promotional=sells product, Biased=one-sided, Sponsored=paid content"""
 
+# Cache environment variables at startup for performance
+_CACHED_ENV = {
+    'DENSITY_THRESHOLD': float(os.getenv('DENSITY_THRESHOLD', '0.45')),
+    'LLM_MAX_CHARS': int(os.getenv('LLM_MAX_CHARS', '12000')),
+    'RATE_LIMIT': int(os.getenv('RATE_LIMIT', '3')),
+    'RATE_WINDOW_SECONDS': int(os.getenv('RATE_WINDOW_SECONDS', '60')),
+    'CPIDR_WEIGHT': float(os.getenv('CPIDR_WEIGHT', '0.5')),
+    'DEPID_WEIGHT': float(os.getenv('DEPID_WEIGHT', '0.3')),
+    'READABILITY_WEIGHT': float(os.getenv('READABILITY_WEIGHT', '0.2')),
+}
+
+
+def get_env(key: str, default=None):
+    """Get cached environment variable value."""
+    return _CACHED_ENV.get(key, default)
+
 
 @app.get("/")
 async def serve_frontend(request: Request):
     """Serve SGNL Heavy Brutalist landing page."""
     session_id = request.cookies.get("sgnl_session")
-    
+
     # Create session if it doesn't exist
     if not session_id:
         session_id = f"sess_{int(time.time())}_{secrets.token_hex(8)}"
-    
+
     response = templates.TemplateResponse("index.html", {"request": request})
-    
+
     # Set session cookie
     response.set_cookie(
         key="sgnl_session",
@@ -173,14 +252,17 @@ async def serve_frontend(request: Request):
         samesite="lax",
         secure=True
     )
-    
+
+    # Add cache headers for HTML (short cache to allow updates)
+    response.headers["Cache-Control"] = "public, max-age=300, s-maxage=600"
+
     # Create visitor record
     try:
         await create_visitor(request, session_id)
         logger.info(f"[ANALYTICS] Session created: {session_id}")
     except Exception as e:
         logger.warning(f"[ANALYTICS] Failed to create visitor: {e}")
-    
+
     return response
 
 
@@ -199,27 +281,28 @@ async def fast_search(req: ScanTopicRequest):
     logger.info(f"[FAST-SEARCH] Topic: {req.topic}, Max Results: {req.max_results}")
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            response = await client.post(
-                N8N_FAST_SEARCH_URL,
-                json={"topic": req.topic, "max_results": req.max_results},
-                headers={"Content-Type": "application/json"}
-            )
-            response.raise_for_status()
-            
-            result = response.json()
-            logger.info(f"[FAST-SEARCH] Raw response: {type(result)}")
-            
-            # Handle n8n returning {results: [...]} or direct array
-            if isinstance(result, dict) and "results" in result:
-                results_array = result["results"]
-            elif isinstance(result, list):
-                results_array = result
-            else:
-                results_array = [result]
-            
-            logger.info(f"[FAST-SEARCH] Got {len(results_array)} results")
-            return {"results": results_array}
+        from extractor import get_http_client
+        client = get_http_client()
+        response = await client.post(
+            N8N_FAST_SEARCH_URL,
+            json={"topic": req.topic, "max_results": req.max_results},
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        logger.info(f"[FAST-SEARCH] Raw response: {type(result)}")
+
+        # Handle n8n returning {results: [...]} or direct array
+        if isinstance(result, dict) and "results" in result:
+            results_array = result["results"]
+        elif isinstance(result, list):
+            results_array = result
+        else:
+            results_array = [result]
+
+        logger.info(f"[FAST-SEARCH] Got {len(results_array)} results")
+        return {"results": results_array}
 
     except httpx.TimeoutException:
         logger.error("[FAST-SEARCH] Request timed out")
@@ -247,17 +330,18 @@ async def scan_topic(req: ScanTopicRequest):
     logger.info(f"[SCAN-TOPIC] Topic: {req.topic}, Max Results: {req.max_results}")
 
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                N8N_WEBHOOK_URL,
-                json={"topic": req.topic, "max_results": req.max_results},
-                headers={"Content-Type": "application/json"}
-            )
-            response.raise_for_status()
-            
-            result = response.json()
-            logger.info(f"[SCAN-TOPIC] Got {len(result) if isinstance(result, list) else 1} results")
-            return result
+        from extractor import get_http_client
+        client = get_http_client()
+        response = await client.post(
+            N8N_WEBHOOK_URL,
+            json={"topic": req.topic, "max_results": req.max_results},
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+
+        result = response.json()
+        logger.info(f"[SCAN-TOPIC] Got {len(result) if isinstance(result, list) else 1} results")
+        return result
 
     except httpx.TimeoutException:
         logger.error("[SCAN-TOPIC] Request to n8n timed out")
@@ -307,7 +391,7 @@ async def deep_scan(req: DeepScanRequest):
         raise HTTPException(status_code=422, detail=f"Failed to extract content: {str(e)}")
     
     # Step 2: Density Gatekeeper - Skip LLM for low-signal content
-    DENSITY_THRESHOLD = float(os.getenv('DENSITY_THRESHOLD', '0.45'))
+    DENSITY_THRESHOLD = get_env('DENSITY_THRESHOLD', 0.45)
     if density_score < DENSITY_THRESHOLD:
         logger.info(f"[DEEP-SCAN] Low density ({density_score:.3f} < {DENSITY_THRESHOLD}), skipping LLM")
         return DeepScanResponse(
@@ -326,10 +410,11 @@ async def deep_scan(req: DeepScanRequest):
     
     # Step 3: Heuristic pre-scoring (fast, no LLM)
     try:
-        # We need raw HTML for heuristics, fetch it
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            html_response = await client.get(req.url, follow_redirects=True)
-            raw_html = html_response.text
+        # We need raw HTML for heuristics, fetch it using shared client
+        from extractor import get_http_client
+        client = get_http_client()
+        html_response = await client.get(req.url)
+        raw_html = html_response.text
         
         heuristic_result = heuristic_analyzer.calculate_structure_score(
             raw_html, 
@@ -342,6 +427,7 @@ async def deep_scan(req: DeepScanRequest):
         heuristic_score = None
     
     # Step 4: LLM Analysis
+    openai_client = get_openai_client()
     if openai_client is None:
         logger.warning("[DEEP-SCAN] OpenAI client not available, using fallback")
         # Fallback without LLM
@@ -359,7 +445,7 @@ async def deep_scan(req: DeepScanRequest):
     
     try:
         # Truncate content for token limits
-        max_chars = int(os.getenv('LLM_MAX_CHARS', '12000'))
+        max_chars = get_env('LLM_MAX_CHARS', 12000)
         truncated_content = content[:max_chars] if len(content) > max_chars else content
         
         response = openai_client.chat.completions.create(
@@ -452,8 +538,17 @@ async def health():
     return {
         "status": "ok",
         "version": "2.0.0",
-        "openai_configured": openai_client is not None
+        "openai_configured": get_openai_client() is not None
     }
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup resources on shutdown."""
+    # Close shared HTTP client
+    from extractor import close_http_client
+    await close_http_client()
+    logger.info("[SHUTDOWN] Resources cleaned up")
 
 
 # ============ n8n Integration Endpoints ============
@@ -546,7 +641,7 @@ async def analyze_results(req: AnalyzeResultsRequest):
     
     logger.info(f"[ANALYZE] Query: {req.query}, Results: {len(req.results)}")
 
-    DENSITY_THRESHOLD = float(os.getenv('DENSITY_THRESHOLD', '0.45'))
+    DENSITY_THRESHOLD = get_env('DENSITY_THRESHOLD', 0.45)
     analyzed = []
     
     for item in req.results:
@@ -557,9 +652,10 @@ async def analyze_results(req: AnalyzeResultsRequest):
         
         # Fetch raw HTML for heuristic analysis
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(url, follow_redirects=True)
-                raw_html = response.text
+            from extractor import get_http_client
+            client = get_http_client()
+            response = await client.get(url)
+            raw_html = response.text
             
             # Calculate heuristic score
             heuristic = heuristic_analyzer.calculate_structure_score(

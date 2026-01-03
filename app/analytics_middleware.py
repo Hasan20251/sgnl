@@ -71,31 +71,33 @@ def parse_device_type(user_agent_str: str) -> str:
 class AnalyticsMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         db: Session = get_session_local()()
-        
+
         try:
             ip = get_client_ip(request)
             ua = request.headers.get("user-agent", "")
             referrer = request.headers.get("referer", "")
-            
+
             session_id = request.cookies.get("sgnl_session")
-            
+
             if session_id:
+                # Optimized query with composite index
                 visitor = db.query(VisitorLog).filter(
-                    VisitorLog.session_id == session_id
+                    VisitorLog.session_id == session_id,
+                    VisitorLog.is_active == True
                 ).first()
-                
+
                 if visitor:
                     visitor.last_activity = datetime.utcnow()
-                    
+
                     if referrer and not visitor.referrer:
                         visitor.referrer = referrer
-                    
+
                     db.commit()
-            
+
             response = await call_next(request)
-            
+
             return response
-            
+
         except Exception as e:
             logger.error(f"[ANALYTICS] Middleware error: {e}")
             return await call_next(request)

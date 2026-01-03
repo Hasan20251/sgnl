@@ -127,29 +127,38 @@ function scrambleToText(element, targetText, onComplete) {
     const chars = CONFIG.scrambleChars;
     let iteration = 0;
     const maxIterations = CONFIG.scrambleIterations;
+    const startTime = performance.now();
 
-    const interval = setInterval(() => {
-        element.textContent = targetText
-            .split('')
-            .map((char, index) => {
-                // Progressively reveal characters from left to right
-                if (index < (iteration / maxIterations) * targetText.length) {
-                    return char;
-                }
-                if (char === ' ') return ' ';
-                return chars[Math.floor(Math.random() * chars.length)];
-            })
-            .join('');
+    function animate(currentTime) {
+        const elapsed = currentTime - startTime;
 
-        iteration++;
+        if (elapsed >= CONFIG.scrambleSpeed) {
+            element.textContent = targetText
+                .split('')
+                .map((char, index) => {
+                    // Progressively reveal characters from left to right
+                    if (index < (iteration / maxIterations) * targetText.length) {
+                        return char;
+                    }
+                    if (char === ' ') return ' ';
+                    return chars[Math.floor(Math.random() * chars.length)];
+                })
+                .join('');
 
-        if (iteration >= maxIterations) {
-            clearInterval(interval);
-            element.textContent = targetText;
-            state.isScrambling = false;
-            if (onComplete) onComplete();
+            iteration++;
+
+            if (iteration >= maxIterations) {
+                element.textContent = targetText;
+                state.isScrambling = false;
+                if (onComplete) onComplete();
+                return;
+            }
         }
-    }, CONFIG.scrambleSpeed);
+
+        requestAnimationFrame(animate);
+    }
+
+    requestAnimationFrame(animate);
 }
 
 /* ========== ROTATOR ========== */
@@ -218,13 +227,34 @@ function goToRotatorSlide(index) {
 }
 
 function startRotatorTimer() {
-    state.rotatorTimer = setInterval(() => {
-        goToRotatorSlide(state.currentRotatorIndex + 1);
-    }, CONFIG.rotatorInterval);
+    let lastTime = performance.now();
+    let elapsed = 0;
+
+    function animateRotator(currentTime) {
+        // Check if page is visible (pause when hidden for performance)
+        if (document.visibilityState === 'visible' && !state.isScrambling) {
+            const delta = currentTime - lastTime;
+            elapsed += delta;
+            lastTime = currentTime;
+
+            if (elapsed >= CONFIG.rotatorInterval) {
+                goToRotatorSlide(state.currentRotatorIndex + 1);
+                elapsed = 0;
+            }
+        } else {
+            lastTime = currentTime;
+        }
+
+        requestAnimationFrame(animateRotator);
+    }
+
+    state.rotatorTimer = requestAnimationFrame(animateRotator);
 }
 
 function resetRotatorTimer() {
-    clearInterval(state.rotatorTimer);
+    if (state.rotatorTimer) {
+        cancelAnimationFrame(state.rotatorTimer);
+    }
     startRotatorTimer();
 }
 
@@ -641,7 +671,19 @@ function cycleStatusMessages() {
     scrambleToText(statusEl, text, () => {
         state.currentStatusIndex = (state.currentStatusIndex + 1) % CONFIG.statusTexts.length;
         if (state.isLoading) {
-            setTimeout(cycleStatusMessages, CONFIG.statusCycleDelay);
+            const startTime = performance.now();
+
+            function statusDelay(currentTime) {
+                if (currentTime - startTime >= CONFIG.statusCycleDelay) {
+                    cycleStatusMessages();
+                } else {
+                    if (state.isLoading) {
+                        requestAnimationFrame(statusDelay);
+                    }
+                }
+            }
+
+            requestAnimationFrame(statusDelay);
         }
     });
 }

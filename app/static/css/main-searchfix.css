@@ -1177,35 +1177,32 @@ h3,
 /* --- SEARCH INPUT: Responsive (Prompt+Input inline, Btn stacked) --- */
 @media (max-width: 768px) {
     .search-input-wrap {
-        flex-direction: row;
-        flex-wrap: wrap;
-        align-items: center;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
     }
 
     .cmd-prompt {
-        padding: 16px 0 16px 16px;
-        font-size: 18px;
-        width: auto;
+        padding: 12px 0 12px 12px !important;
+        font-size: 16px !important;
+        width: auto !important;
     }
 
     .search-input {
-        flex: 1;
-        /* Take remaining space on the line */
-        width: auto;
-        /* Allow flex to control width */
-        font-size: 18px;
-        padding: 16px;
-        min-width: 100px;
-        /* Prevent being squashed too small */
+        flex: 1 !important;
+        width: auto !important;
+        font-size: 16px !important;
+        padding: 12px !important;
+        min-width: 80px !important;
     }
 
     .search-btn {
-        width: 100%;
-        border-left: none;
-        border-top: 4px solid var(--ink-color);
-        padding: 20px;
-        min-height: 56px;
-        /* Better touch target */
+        width: 100% !important;
+        border-left: none !important;
+        border-top: 4px solid var(--ink-color) !important;
+        padding: 16px !important;
+        font-size: 14px !important;
+        min-height: 48px !important;
     }
 
     .command-box {
@@ -1220,37 +1217,40 @@ h3,
     }
 
     .cmd-prompt {
-        font-size: 16px;
-        padding: 12px 0 12px 12px;
+        font-size: 14px !important;
+        padding: 10px 0 10px 10px !important;
     }
 
     .search-input {
-        font-size: 16px;
-        padding: 12px;
+        font-size: 14px !important;
+        padding: 10px !important;
     }
 
     .search-btn {
-        font-size: 16px;
-        padding: 16px;
+        font-size: 12px !important;
+        padding: 14px !important;
     }
-}
 }
 
 /* --- SEARCH INPUT: Desktop (inline layout, balanced sizing) --- */
 @media (min-width: 769px) {
     .search-btn {
-        padding: 0 16px;
-        font-size: 12px;
-        max-width: 100px;
+        padding: 28px 48px !important;
+        font-size: 18px !important;
+        width: auto !important;
+        flex-shrink: 0 !important;
     }
 
     .search-input {
-        flex: 1;
-        min-width: 0;
+        flex: 1 !important;
+        min-width: 0 !important;
+        font-size: 28px !important;
+        padding: 28px !important;
     }
 
     .cmd-prompt {
-        padding: 24px 0 24px 24px;
+        padding: 24px 0 24px 24px !important;
+        font-size: 24px !important;
     }
 }
 
